@@ -9,23 +9,21 @@ import SwiftUI
 
 struct RootTabView: View {
     @EnvironmentObject private var coordinator: AppCoordinator
+    @StateObject private var trailDataStore = TrailDataStore()
 
     var body: some View {
         ZStack(alignment: .bottom) {
             TrailTheme.background.ignoresSafeArea()
 
             TabView(selection: $coordinator.selectedTab) {
-                FeedView(viewModel: FeedViewModel())
+                FeedView(viewModel: FeedViewModel(dataSource: trailDataStore))
                     .tag(TrailTab.feed)
 
-                JourneyView(viewModel: JourneyViewModel())
+                JourneyView(viewModel: JourneyViewModel(dataSource: trailDataStore))
                     .tag(TrailTab.journey)
 
-                RecordVoiceDropView(viewModel: RecordVoiceDropViewModel())
+                RecordVoiceDropView(viewModel: RecordVoiceDropViewModel(dataStore: trailDataStore))
                     .tag(TrailTab.record)
-
-                ChatView(viewModel: ChatViewModel())
-                    .tag(TrailTab.chat)
 
                 ProfileView(viewModel: ProfileViewModel())
                     .tag(TrailTab.profile)
@@ -45,7 +43,7 @@ private struct TrailTabBar: View {
 
     var body: some View {
         HStack(spacing: 0) {
-            ForEach(TrailTab.allCases) { tab in
+            ForEach(TrailTab.allCases.filter { $0 != .chat }) { tab in
                 Button {
                     onSelect(tab)
                 } label: {

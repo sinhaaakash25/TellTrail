@@ -35,7 +35,7 @@ struct AvatarView: View {
             .foregroundStyle(.white)
             .frame(width: size, height: size)
             .background(TrailTheme.accentGradient, in: Circle())
-            .overlay(Circle().stroke(Color.white.opacity(0.18), lineWidth: 1))
+            .overlay(Circle().stroke(TrailTheme.border, lineWidth: 1))
     }
 }
 
@@ -59,7 +59,7 @@ struct WaveformView: View {
 
     private func color(for index: Int) -> Color {
         let activeBars = Int(Double(bars.count) * progress)
-        guard isActive, index <= activeBars else { return Color.white.opacity(0.18) }
+        guard isActive, index <= activeBars else { return TrailTheme.subtleFill }
         return index.isMultiple(of: 2) ? TrailTheme.cyan : TrailTheme.purple
     }
 }
@@ -88,7 +88,7 @@ struct LockBadge: View {
             .foregroundStyle(isUnlocked ? TrailTheme.green : TrailTheme.orange)
             .padding(.horizontal, 10)
             .padding(.vertical, 7)
-            .background(Color.white.opacity(0.08), in: Capsule())
+            .background(TrailTheme.subtleFill, in: Capsule())
     }
 }
 
@@ -128,7 +128,7 @@ struct CompactButton: View {
         case .primary:
             AnyShapeStyle(TrailTheme.accentGradient)
         case .secondary:
-            AnyShapeStyle(Color.white.opacity(0.10))
+            AnyShapeStyle(TrailTheme.subtleFill)
         case .dark:
             AnyShapeStyle(Color.black.opacity(0.28))
         }

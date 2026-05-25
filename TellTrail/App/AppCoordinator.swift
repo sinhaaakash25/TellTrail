@@ -6,6 +6,7 @@
 //
 
 import SwiftUI
+import Combine
 
 final class AppCoordinator: ObservableObject {
     @Published var selectedTab: TrailTab = .feed

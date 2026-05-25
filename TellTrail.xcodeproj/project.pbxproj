@@ -7,7 +7,7 @@
 	objects = {
 
 /* Begin PBXFileReference section */
-		2ECF32662FB30B4B000BC5BA /* TellTrail.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = TellTrail.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		2ECF32C72FB319BA000BC5BA /* TellTrail.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = TellTrail.app; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
@@ -33,16 +33,8 @@
 			isa = PBXGroup;
 			children = (
 				2ECF32682FB30B4B000BC5BA /* TellTrail */,
-				2ECF32672FB30B4B000BC5BA /* Products */,
+				2ECF32C72FB319BA000BC5BA /* TellTrail.app */,
 			);
-			sourceTree = "<group>";
-		};
-		2ECF32672FB30B4B000BC5BA /* Products */ = {
-			isa = PBXGroup;
-			children = (
-				2ECF32662FB30B4B000BC5BA /* TellTrail.app */,
-			);
-			name = Products;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -67,7 +59,7 @@
 			packageProductDependencies = (
 			);
 			productName = TellTrail;
-			productReference = 2ECF32662FB30B4B000BC5BA /* TellTrail.app */;
+			productReference = 2ECF32C72FB319BA000BC5BA /* TellTrail.app */;
 			productType = "com.apple.product-type.application";
 		};
 /* End PBXNativeTarget section */
@@ -95,7 +87,7 @@
 			mainGroup = 2ECF325D2FB30B4B000BC5BA;
 			minimizedProjectReferenceProxies = 1;
 			preferredProjectObjectVersion = 77;
-			productRefGroup = 2ECF32672FB30B4B000BC5BA /* Products */;
+			productRefGroup = 2ECF325D2FB30B4B000BC5BA;
 			projectDirPath = "";
 			projectRoot = "";
 			targets = (
@@ -256,11 +248,15 @@
 				DEVELOPMENT_TEAM = ZT7SZU32GJ;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_NSCameraUsageDescription = "Please allow user to take photos, videos";
+				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "Please allow User's location";
+				INFOPLIST_KEY_NSMicrophoneUsageDescription = "Please allow user to record voice";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				IPHONEOS_DEPLOYMENT_TARGET = 17.6;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -288,11 +284,15 @@
 				DEVELOPMENT_TEAM = ZT7SZU32GJ;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_NSCameraUsageDescription = "Please allow user to take photos, videos";
+				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "Please allow User's location";
+				INFOPLIST_KEY_NSMicrophoneUsageDescription = "Please allow user to record voice";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				IPHONEOS_DEPLOYMENT_TARGET = 17.6;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",

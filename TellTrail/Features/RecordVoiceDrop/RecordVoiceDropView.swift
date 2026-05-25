@@ -1,19 +1,26 @@
 import PhotosUI
 import SwiftUI
+import UIKit
 
 struct RecordVoiceDropView: View {
     @StateObject private var viewModel: RecordVoiceDropViewModel
     @State private var selectedPhotoItem: PhotosPickerItem?
     @State private var selectedVideoItem: PhotosPickerItem?
+    @FocusState private var focusedField: RecordFocusField?
 
     init(viewModel: RecordVoiceDropViewModel) {
         _viewModel = StateObject(wrappedValue: viewModel)
     }
 
     var body: some View {
-        ScrollView(showsIndicators: false) {
-            VStack(alignment: .leading, spacing: 18) {
-                HeaderView(title: "Create Drop", subtitle: "Record first. Add context after.", actionSymbol: "xmark.circle")
+        ScrollViewReader { proxy in
+            ScrollView(showsIndicators: false) {
+                VStack(alignment: .leading, spacing: 18) {
+                RecordHeader(isDisabled: viewModel.isSaved) {
+                    viewModel.deleteDraft()
+                    selectedPhotoItem = nil
+                    selectedVideoItem = nil
+                }
 
                 PrimaryRecorderPanel(
                     isRecording: viewModel.isRecording,
@@ -29,7 +36,8 @@ struct RecordVoiceDropView: View {
                 DropDetailsSection(
                     title: $viewModel.title,
                     caption: $viewModel.caption,
-                    locationName: $viewModel.locationName
+                    locationName: $viewModel.locationName,
+                    focusedField: $focusedField
                 )
 
                 MediaSection(
@@ -48,31 +56,145 @@ struct RecordVoiceDropView: View {
                     selectedVisibility: $viewModel.selectedVisibility
                 )
 
-                StatusMessage(message: viewModel.errorMessage, style: .error)
-                StatusMessage(message: viewModel.saveMessage, style: .success)
-
-                Button(action: viewModel.saveDrop) {
-                    Label("Save Voice Drop", systemImage: "checkmark.circle.fill")
-                        .font(.headline.weight(.bold))
-                        .foregroundStyle(viewModel.canSave ? .white : TrailTheme.secondaryText)
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 15)
-                        .background(viewModel.canSave ? AnyShapeStyle(TrailTheme.accentGradient) : AnyShapeStyle(TrailTheme.surface), in: Capsule())
-                        .overlay(Capsule().stroke(viewModel.canSave ? Color.clear : TrailTheme.border, lineWidth: 1))
+                Button {
+                    withAnimation(.easeInOut(duration: 0.24)) {
+                        viewModel.saveDrop()
+                        focusedField = nil
+                        selectedPhotoItem = nil
+                        selectedVideoItem = nil
+                    }
+                } label: {
+                    SaveButtonLabel(isSaved: viewModel.isSaved, canSave: viewModel.canSave)
                 }
                 .buttonStyle(.plain)
-                .disabled(!viewModel.canSave)
+                .disabled(!viewModel.canSave || viewModel.isSaved)
+                }
+                .padding(.horizontal, 16)
+                .padding(.top, 18)
+                .padding(.bottom, 280)
+                .allowsHitTesting(!viewModel.isSaved)
+                .animation(.easeInOut(duration: 0.24), value: viewModel.isSaved)
             }
-            .padding(.horizontal, 16)
-            .padding(.top, 18)
-            .padding(.bottom, 120)
+            .onChange(of: focusedField) { _, field in
+                guard let field else { return }
+                withAnimation(.easeOut(duration: 0.22)) {
+                    proxy.scrollTo(field, anchor: .center)
+                }
+            }
         }
         .background(TrailTheme.background.ignoresSafeArea())
+        .scrollDismissesKeyboard(.interactively)
+        .contentShape(Rectangle())
+        .onTapGesture {
+            dismissKeyboard()
+        }
         .onChange(of: selectedPhotoItem) { _, newItem in
-            Task { await viewModel.attachPhoto(newItem) }
+            Task {
+                let data = try? await newItem?.loadTransferable(type: Data.self)
+                await MainActor.run {
+                    viewModel.attachPhotoData(data ?? nil)
+                }
+            }
         }
         .onChange(of: selectedVideoItem) { _, newItem in
-            Task { await viewModel.attachVideo(newItem) }
+            if newItem != nil {
+                viewModel.attachVideo()
+            }
+        }
+    }
+    private func dismissKeyboard() {
+        UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
+    }
+}
+
+private enum RecordFocusField: Hashable {
+    case title
+    case location
+    case caption
+}
+
+private struct SaveButtonLabel: View {
+    let isSaved: Bool
+    let canSave: Bool
+
+    var body: some View {
+        ZStack {
+            Label("Save", systemImage: "checkmark.circle")
+                .opacity(isSaved ? 0 : 1)
+                .scaleEffect(isSaved ? 0.96 : 1)
+            Label("Saved", systemImage: "checkmark.circle.fill")
+                .opacity(isSaved ? 1 : 0)
+                .scaleEffect(isSaved ? 1 : 0.96)
+        }
+        .font(.headline.weight(.bold))
+        .foregroundStyle(foregroundStyle)
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 15)
+        .background(backgroundStyle, in: Capsule())
+        .overlay(Capsule().stroke(borderColor, lineWidth: 1))
+        .animation(.easeInOut(duration: 0.24), value: isSaved)
+        .animation(.easeInOut(duration: 0.18), value: canSave)
+    }
+
+    private var foregroundStyle: Color {
+        if isSaved { return TrailTheme.green }
+        return canSave ? .white : TrailTheme.secondaryText
+    }
+
+    private var backgroundStyle: AnyShapeStyle {
+        if isSaved { return AnyShapeStyle(TrailTheme.surface) }
+        return canSave ? AnyShapeStyle(TrailTheme.accentGradient) : AnyShapeStyle(TrailTheme.surface)
+    }
+
+    private var borderColor: Color {
+        if isSaved { return TrailTheme.green.opacity(0.45) }
+        return canSave ? .clear : TrailTheme.border
+    }
+}
+
+private struct SplitHeaderTitle: View {
+    let primary: String
+    let accent: String
+
+    var body: some View {
+        HStack(spacing: 0) {
+            Text(primary)
+                .foregroundStyle(.white)
+            Text(accent)
+                .foregroundStyle(TrailTheme.green)
+        }
+        .font(.title2.weight(.black))
+        .lineLimit(1)
+        .minimumScaleFactor(0.82)
+        .accessibilityLabel(primary + accent)
+    }
+}
+
+private struct RecordHeader: View {
+    let isDisabled: Bool
+    let onDelete: () -> Void
+
+    var body: some View {
+        HStack(alignment: .center) {
+            VStack(alignment: .leading, spacing: 4) {
+                SplitHeaderTitle(primary: "Re", accent: "cord")
+                Text("Record first. Add context after.")
+                    .font(.subheadline)
+                    .foregroundStyle(TrailTheme.secondaryText)
+            }
+            Spacer()
+            Button(action: onDelete) {
+                Image(systemName: "trash")
+                    .font(.headline)
+                    .foregroundStyle(TrailTheme.orange)
+                    .frame(width: 44, height: 44)
+                    .background(TrailTheme.surface, in: Circle())
+                    .overlay(Circle().stroke(TrailTheme.border, lineWidth: 1))
+            }
+            .buttonStyle(.plain)
+            .disabled(isDisabled)
+            .opacity(isDisabled ? 0.45 : 1)
+            .accessibilityLabel("Delete draft")
         }
     }
 }
@@ -122,8 +244,8 @@ private struct PrimaryRecorderPanel: View {
             }
             .frame(maxWidth: .infinity, alignment: .leading)
 
-            WaveformView(progress: hasRecording || isRecording ? max(progress, 0.08) : 0, isActive: isRecording || hasRecording)
-                .frame(height: 34)
+            RecordProgressLine(progress: hasRecording || isRecording ? max(progress, 0.08) : 0, isActive: isRecording || hasRecording)
+                .padding(.vertical, 8)
 
             HStack(spacing: 10) {
                 Button(action: onPreview) {
@@ -151,17 +273,39 @@ private struct PrimaryRecorderPanel: View {
     }
 }
 
+private struct RecordProgressLine: View {
+    let progress: Double
+    let isActive: Bool
+
+    var body: some View {
+        GeometryReader { proxy in
+            ZStack(alignment: .leading) {
+                Capsule()
+                    .fill(TrailTheme.subtleFill)
+                Capsule()
+                    .fill(isActive ? TrailTheme.cyan : TrailTheme.secondaryText.opacity(0.32))
+                    .frame(width: proxy.size.width * max(0, min(progress, 1)))
+            }
+        }
+        .frame(height: 3)
+    }
+}
+
 private struct DropDetailsSection: View {
     @Binding var title: String
     @Binding var caption: String
     @Binding var locationName: String
+    var focusedField: FocusState<RecordFocusField?>.Binding
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
             SectionTitle(title: "Details", symbol: "text.alignleft")
-            FormTextField(title: "Title", placeholder: "Name this voice note", text: $title, symbol: "textformat")
-            FormTextField(title: "Location", placeholder: "Add location", text: $locationName, symbol: "mappin.and.ellipse")
-            FormTextEditor(title: "Caption", placeholder: "Add context, tags, or a creator offer", text: $caption)
+            FormTextField(title: "Title", placeholder: "Name this voice note", text: $title, symbol: "textformat", focus: .title, focusedField: focusedField)
+                .id(RecordFocusField.title)
+            FormTextField(title: "Location", placeholder: "Add location", text: $locationName, symbol: "mappin.and.ellipse", focus: .location, focusedField: focusedField)
+                .id(RecordFocusField.location)
+            FormTextEditor(title: "Caption", placeholder: "Add context, tags, or a creator offer", text: $caption, focusedField: focusedField)
+                .id(RecordFocusField.caption)
         }
         .sectionCard()
     }
@@ -184,20 +328,14 @@ private struct MediaSection: View {
                 }
                 .buttonStyle(.plain)
 
-                PhotosPicker(selection: $selectedVideoItem, matching: .videos) {
-                    MediaAttachBox(symbol: "video.fill", title: "Video", attachmentName: videoAttachmentName)
-                }
-                .buttonStyle(.plain)
+                MediaAttachBox(symbol: "video.slash.fill", title: "Video disabled", attachmentName: nil)
+                    .opacity(0.46)
+                    .accessibilityLabel("Video attachment disabled")
             }
 
-            if photoAttachmentName != nil || videoAttachmentName != nil {
+            if photoAttachmentName != nil {
                 HStack(spacing: 10) {
-                    if photoAttachmentName != nil {
-                        AttachmentPill(title: "Photo", symbol: "photo.fill", onRemove: onRemovePhoto)
-                    }
-                    if videoAttachmentName != nil {
-                        AttachmentPill(title: "Video", symbol: "video.fill", onRemove: onRemoveVideo)
-                    }
+                    AttachmentPill(title: "Photo", symbol: "photo.fill", onRemove: onRemovePhoto)
                 }
             }
         }
@@ -247,6 +385,8 @@ private struct FormTextField: View {
     let placeholder: String
     @Binding var text: String
     let symbol: String
+    let focus: RecordFocusField
+    var focusedField: FocusState<RecordFocusField?>.Binding
 
     var body: some View {
         HStack(spacing: 12) {
@@ -258,6 +398,7 @@ private struct FormTextField: View {
                     .font(.caption.weight(.semibold))
                     .foregroundStyle(TrailTheme.secondaryText)
                 TextField(placeholder, text: $text)
+                    .focused(focusedField, equals: focus)
                     .textInputAutocapitalization(.words)
                     .disableAutocorrection(true)
                     .font(.subheadline.weight(.semibold))
@@ -272,6 +413,7 @@ private struct FormTextEditor: View {
     let title: String
     let placeholder: String
     @Binding var text: String
+    var focusedField: FocusState<RecordFocusField?>.Binding
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
@@ -287,6 +429,7 @@ private struct FormTextEditor: View {
                         .padding(.leading, 5)
                 }
                 TextEditor(text: $text)
+                    .focused(focusedField, equals: .caption)
                     .font(.subheadline)
                     .foregroundStyle(TrailTheme.primaryText)
                     .scrollContentBackground(.hidden)

@@ -1,3 +1,4 @@
+import AVFAudio
 import AVFoundation
 import CoreLocation
 import Foundation
@@ -27,6 +28,8 @@ final class AppPermissionManager: NSObject, CLLocationManagerDelegate {
     }
 
     private func requestLocationPermission() async {
+        guard hasUsageDescription("NSLocationWhenInUseUsageDescription") else { return }
+
         let status = locationManager.authorizationStatus
         guard status == .notDetermined else { return }
 
@@ -37,6 +40,7 @@ final class AppPermissionManager: NSObject, CLLocationManagerDelegate {
     }
 
     private func requestCameraPermission() async {
+        guard hasUsageDescription("NSCameraUsageDescription") else { return }
         guard AVCaptureDevice.authorizationStatus(for: .video) == .notDetermined else { return }
 
         await withCheckedContinuation { continuation in
@@ -47,13 +51,19 @@ final class AppPermissionManager: NSObject, CLLocationManagerDelegate {
     }
 
     private func requestMicrophonePermission() async {
-        guard AVAudioSession.sharedInstance().recordPermission == .undetermined else { return }
+        guard hasUsageDescription("NSMicrophoneUsageDescription") else { return }
+        guard AVAudioApplication.shared.recordPermission == .undetermined else { return }
 
         await withCheckedContinuation { continuation in
-            AVAudioSession.sharedInstance().requestRecordPermission { _ in
+            AVAudioApplication.requestRecordPermission { _ in
                 continuation.resume()
             }
         }
+    }
+
+    private func hasUsageDescription(_ key: String) -> Bool {
+        guard let value = Bundle.main.object(forInfoDictionaryKey: key) as? String else { return false }
+        return !value.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
     }
 
     private func requestNotificationPermission() async {

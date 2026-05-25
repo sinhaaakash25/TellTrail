@@ -92,20 +92,20 @@ private struct OnboardingPage: Identifiable {
 
     static let all: [OnboardingPage] = [
         OnboardingPage(
-            title: "Hear a place before you arrive",
-            body: "Find short voice drops tied to real locations, so every trail starts with a local story.",
+            title: "Places have stories. We saved the audio.",
+            body: "Find short voice drops tied to real locations, so every trail starts with something worth hearing.",
             symbol: "waveform.path.ecg",
             accent: TrailTheme.cyan
         ),
         OnboardingPage(
-            title: "Leave memories where they happened",
-            body: "Record a voice note, attach a snap, and save it to the map for others to discover nearby.",
+            title: "Drop a voice note where the moment happened.",
+            body: "Record a thought, attach a snap, and leave it on the map for the next curious traveler.",
             symbol: "mappin.and.ellipse",
             accent: TrailTheme.green
         ),
         OnboardingPage(
-            title: "Explore voices around you",
-            body: "Switch locations, open the map, play notes, and collect the moments that make a place feel alive.",
+            title: "Wander less blindly. Listen first.",
+            body: "Change location, open the map, play nearby notes, and let the best local clues find you.",
             symbol: "location.north.line",
             accent: TrailTheme.orange
         )
@@ -117,28 +117,39 @@ private struct OnboardingPageView: View {
     let isAnimating: Bool
 
     var body: some View {
-        VStack(spacing: 30) {
-            Spacer(minLength: 10)
+        GeometryReader { proxy in
+            let isCompact = proxy.size.height < 610
+            let heroHeight = min(isCompact ? 218 : 252, proxy.size.height * 0.44)
 
-            OnboardingHero(symbol: page.symbol, accent: page.accent, isAnimating: isAnimating)
+            VStack(spacing: isCompact ? 18 : 24) {
+                Spacer(minLength: isCompact ? 4 : 10)
 
-            VStack(spacing: 14) {
-                Text(page.title)
-                    .font(.system(size: 34, weight: .black, design: .rounded))
-                    .foregroundStyle(TrailTheme.primaryText)
-                    .multilineTextAlignment(.center)
-                    .lineSpacing(2)
-                    .minimumScaleFactor(0.86)
+                OnboardingHero(symbol: page.symbol, accent: page.accent, isAnimating: isAnimating, height: heroHeight)
 
-                Text(page.body)
-                    .font(.body.weight(.medium))
-                    .foregroundStyle(TrailTheme.secondaryText)
-                    .multilineTextAlignment(.center)
-                    .lineSpacing(4)
-                    .padding(.horizontal, 6)
+                VStack(spacing: 10) {
+                    Text(page.title)
+                        .font(.system(size: isCompact ? 27 : 31, weight: .black, design: .rounded))
+                        .foregroundStyle(TrailTheme.primaryText)
+                        .multilineTextAlignment(.center)
+                        .lineLimit(3)
+                        .minimumScaleFactor(0.78)
+                        .fixedSize(horizontal: false, vertical: true)
+
+                    Text(page.body)
+                        .font(.callout.weight(.medium))
+                        .foregroundStyle(TrailTheme.secondaryText)
+                        .multilineTextAlignment(.center)
+                        .lineSpacing(3)
+                        .lineLimit(4)
+                        .minimumScaleFactor(0.84)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .padding(.horizontal, 4)
+                }
+                .frame(maxWidth: .infinity)
+
+                Spacer(minLength: isCompact ? 4 : 14)
             }
-
-            Spacer(minLength: 20)
+            .frame(width: proxy.size.width, height: proxy.size.height)
         }
     }
 }
@@ -147,49 +158,68 @@ private struct OnboardingHero: View {
     let symbol: String
     let accent: Color
     let isAnimating: Bool
+    let height: CGFloat
 
     var body: some View {
         ZStack {
-            RoundedRectangle(cornerRadius: 34, style: .continuous)
+            RoundedRectangle(cornerRadius: 30, style: .continuous)
                 .fill(TrailTheme.surface)
-                .frame(height: 300)
+                .frame(height: height)
                 .overlay(
-                    RoundedRectangle(cornerRadius: 34, style: .continuous)
+                    RoundedRectangle(cornerRadius: 30, style: .continuous)
                         .stroke(TrailTheme.border, lineWidth: 1)
                 )
 
-            VStack(spacing: 24) {
+            VStack(spacing: 16) {
                 ZStack {
                     ForEach(0..<3) { index in
                         Circle()
                             .stroke(accent.opacity(0.18 - Double(index) * 0.04), lineWidth: 1)
-                            .frame(width: CGFloat(116 + index * 48), height: CGFloat(116 + index * 48))
-                            .scaleEffect(isAnimating ? 1.06 : 0.94)
+                            .frame(width: CGFloat(88 + index * 36), height: CGFloat(88 + index * 36))
+                            .scaleEffect(isAnimating ? 1.05 : 0.96)
                     }
 
                     Circle()
                         .fill(accent.opacity(0.16))
-                        .frame(width: 112, height: 112)
+                        .frame(width: 86, height: 86)
 
                     Image(systemName: symbol)
-                        .font(.system(size: 42, weight: .bold))
+                        .font(.system(size: 34, weight: .bold))
                         .foregroundStyle(accent)
                 }
+                .frame(height: max(92, height * 0.44))
 
                 AnimatedWaveform(accent: accent, isAnimating: isAnimating)
-                    .frame(height: 54)
-                    .padding(.horizontal, 32)
+                    .frame(height: 38)
+                    .padding(.horizontal, 26)
 
-                HStack(spacing: 10) {
-                    Label("Map", systemImage: "map")
-                    Label("Voice", systemImage: "mic")
-                    Label("Snaps", systemImage: "photo")
+                HStack(spacing: 8) {
+                    OnboardingFeatureChip(title: "Map", symbol: "map")
+                    OnboardingFeatureChip(title: "Voice", symbol: "mic")
+                    OnboardingFeatureChip(title: "Snaps", symbol: "photo")
                 }
-                .font(.caption.weight(.semibold))
-                .foregroundStyle(TrailTheme.secondaryText)
+                .padding(.bottom, 2)
             }
-            .padding(26)
+            .padding(.horizontal, 18)
+            .frame(height: height)
         }
+        .frame(height: height)
+    }
+}
+
+private struct OnboardingFeatureChip: View {
+    let title: String
+    let symbol: String
+
+    var body: some View {
+        Label(title, systemImage: symbol)
+            .font(.caption2.weight(.semibold))
+            .foregroundStyle(TrailTheme.secondaryText)
+            .lineLimit(1)
+            .minimumScaleFactor(0.78)
+            .padding(.horizontal, 9)
+            .padding(.vertical, 6)
+            .background(TrailTheme.subtleFill, in: Capsule())
     }
 }
 
@@ -200,15 +230,17 @@ private struct AnimatedWaveform: View {
     private let bars: [CGFloat] = [0.30, 0.58, 0.36, 0.78, 0.48, 0.92, 0.42, 0.70, 0.34, 0.62, 0.46, 0.86, 0.38, 0.66, 0.32]
 
     var body: some View {
-        HStack(alignment: .center, spacing: 6) {
-            ForEach(bars.indices, id: \.self) { index in
-                Capsule()
-                    .fill(index % 3 == 0 ? accent : TrailTheme.primaryText.opacity(0.55))
-                    .frame(width: 5, height: max(12, bars[index] * (isAnimating ? 54 : 34)))
-                    .animation(.easeInOut(duration: 0.9 + Double(index % 4) * 0.12).repeatForever(autoreverses: true), value: isAnimating)
+        GeometryReader { proxy in
+            HStack(alignment: .center, spacing: 6) {
+                ForEach(bars.indices, id: \.self) { index in
+                    Capsule()
+                        .fill(index % 3 == 0 ? accent : TrailTheme.primaryText.opacity(0.55))
+                        .frame(width: 5, height: max(10, bars[index] * (isAnimating ? proxy.size.height : proxy.size.height * 0.65)))
+                        .animation(.easeInOut(duration: 0.9 + Double(index % 4) * 0.12).repeatForever(autoreverses: true), value: isAnimating)
+                }
             }
+            .frame(width: proxy.size.width, height: proxy.size.height)
         }
-        .frame(maxWidth: .infinity)
     }
 }
 

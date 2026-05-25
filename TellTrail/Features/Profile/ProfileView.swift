@@ -10,6 +10,8 @@ struct ProfileView: View {
     var body: some View {
         ScrollView(showsIndicators: false) {
             VStack(spacing: 18) {
+                ProfileHeader()
+
                 ProfileHero()
 
                 LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 12) {
@@ -30,6 +32,37 @@ struct ProfileView: View {
             .padding(.top, 18)
             .padding(.bottom, 110)
         }
+    }
+}
+
+private struct ProfileHeader: View {
+    var body: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            SplitHeaderTitle(primary: "Pro", accent: "file")
+
+            Text("Your saved voice trails and travel stats")
+                .font(.subheadline)
+                .foregroundStyle(TrailTheme.secondaryText)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+}
+
+private struct SplitHeaderTitle: View {
+    let primary: String
+    let accent: String
+
+    var body: some View {
+        HStack(spacing: 0) {
+            Text(primary)
+                .foregroundStyle(.white)
+            Text(accent)
+                .foregroundStyle(TrailTheme.green)
+        }
+        .font(.title2.weight(.black))
+        .lineLimit(1)
+        .minimumScaleFactor(0.82)
+        .accessibilityLabel(primary + accent)
     }
 }
 

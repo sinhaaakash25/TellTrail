@@ -1,5 +1,7 @@
+import Combine
 import CoreLocation
 import Foundation
+import SwiftUI
 
 final class TrailDataStore: ObservableObject, FeedDataProviding, JourneyDataProviding {
     @Published private(set) var drops: [VoiceDrop]
@@ -18,7 +20,7 @@ final class TrailDataStore: ObservableObject, FeedDataProviding, JourneyDataProv
         JourneySnapshot(stops: stops, voiceDrops: drops)
     }
 
-    func addVoiceDrop(title: String, caption: String, locationName: String, duration: String, range: String) {
+    func addVoiceDrop(title: String, caption: String, locationName: String, duration: String, range: String, audioURL: URL?, imageURL: URL?) {
         let drop = VoiceDrop(
             creator: PreviewTrailData.aakash,
             title: title,
@@ -33,9 +35,10 @@ final class TrailDataStore: ObservableObject, FeedDataProviding, JourneyDataProv
             range: range,
             isUnlocked: true,
             category: "Voice Drop",
-            imageURL: nil,
+            imageURL: imageURL,
             mediaSymbol: "mic.fill",
-            gradientColors: [TrailTheme.cyan, TrailTheme.green]
+            gradientColors: [TrailTheme.cyan, TrailTheme.green],
+            audioURL: audioURL
         )
 
         drops.insert(drop, at: 0)

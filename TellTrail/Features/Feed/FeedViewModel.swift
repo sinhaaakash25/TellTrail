@@ -26,10 +26,12 @@ final class FeedViewModel: NSObject, ObservableObject {
 
     private let dataSource: FeedDataProviding
     private let speechSynthesizer = AVSpeechSynthesizer()
+    private var audioPlayer: AVAudioPlayer?
     private let locationManager = CLLocationManager()
     private let geocoder = CLGeocoder()
     private var locationContinuation: CheckedContinuation<CLLocation?, Never>?
     private var authorizationContinuation: CheckedContinuation<Void, Never>?
+    private var storeCancellable: AnyCancellable?
     private var playbackTimer: Timer?
     private var hasLoadedDrops = false
 
@@ -52,6 +54,11 @@ final class FeedViewModel: NSObject, ObservableObject {
         speechSynthesizer.delegate = self
         locationManager.delegate = self
         locationManager.desiredAccuracy = kCLLocationAccuracyHundredMeters
+        if let store = dataSource as? TrailDataStore {
+            storeCancellable = store.$drops.sink { [weak self] drops in
+                self?.drops = drops
+            }
+        }
     }
 
     convenience init(drops: [VoiceDrop]) {
@@ -61,6 +68,7 @@ final class FeedViewModel: NSObject, ObservableObject {
     deinit {
         playbackTimer?.invalidate()
         speechSynthesizer.stopSpeaking(at: .immediate)
+        audioPlayer?.stop()
         locationContinuation?.resume(returning: nil)
         authorizationContinuation?.resume()
     }
@@ -186,22 +194,43 @@ final class FeedViewModel: NSObject, ObservableObject {
         playingDropID = drop.id
         playbackProgress = 0
 
+        if let audioURL = drop.audioURL, playRecordedAudio(from: audioURL) {
+            return
+        }
+
         let utterance = AVSpeechUtterance(string: "\(drop.title). \(drop.caption)")
         utterance.voice = AVSpeechSynthesisVoice(language: "en-IN") ?? AVSpeechSynthesisVoice(language: "en-US")
         utterance.rate = 0.48
         speechSynthesizer.speak(utterance)
-        startProgressTimer()
+        startProgressTimer(step: 0.018)
+    }
+
+    private func playRecordedAudio(from url: URL) -> Bool {
+        do {
+            let player = try AVAudioPlayer(contentsOf: url)
+            audioPlayer = player
+            player.delegate = self
+            player.prepareToPlay()
+            player.play()
+            startProgressTimer(step: 0.12 / max(player.duration, 1))
+            return true
+        } catch {
+            audioPlayer = nil
+            return false
+        }
     }
 
     private func stopPlayback() {
         playbackTimer?.invalidate()
         playbackTimer = nil
         speechSynthesizer.stopSpeaking(at: .immediate)
+        audioPlayer?.stop()
+        audioPlayer = nil
         playingDropID = nil
         playbackProgress = 0
     }
 
-    private func startProgressTimer() {
+    private func startProgressTimer(step: Double) {
         playbackTimer?.invalidate()
         playbackTimer = Timer.scheduledTimer(withTimeInterval: 0.12, repeats: true) { [weak self] timer in
             guard let self else {
@@ -209,7 +238,7 @@ final class FeedViewModel: NSObject, ObservableObject {
                 return
             }
 
-            playbackProgress = min(playbackProgress + 0.018, 1)
+            playbackProgress = min(playbackProgress + step, 1)
             if playbackProgress >= 1 {
                 stopPlayback()
             }
@@ -242,16 +271,25 @@ extension FeedViewModel: CLLocationManagerDelegate {
     }
 }
 
-extension FeedViewModel: AVSpeechSynthesizerDelegate {
+extension FeedViewModel: AVSpeechSynthesizerDelegate, AVAudioPlayerDelegate {
     func speechSynthesizer(_ synthesizer: AVSpeechSynthesizer, didFinish utterance: AVSpeechUtterance) {
-        playbackTimer?.invalidate()
-        playbackTimer = nil
-        playingDropID = nil
-        playbackProgress = 0
+        finishPlayback()
     }
 
     func speechSynthesizer(_ synthesizer: AVSpeechSynthesizer, didCancel utterance: AVSpeechUtterance) {
         playbackTimer?.invalidate()
         playbackTimer = nil
+    }
+
+    func audioPlayerDidFinishPlaying(_ player: AVAudioPlayer, successfully flag: Bool) {
+        finishPlayback()
+    }
+
+    private func finishPlayback() {
+        playbackTimer?.invalidate()
+        playbackTimer = nil
+        audioPlayer = nil
+        playingDropID = nil
+        playbackProgress = 0
     }
 }

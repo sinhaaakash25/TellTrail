@@ -1,7 +1,6 @@
 import AVFoundation
 import Combine
 import Foundation
-import PhotosUI
 
 final class RecordVoiceDropViewModel: NSObject, ObservableObject {
     @Published var title = ""
@@ -15,17 +14,25 @@ final class RecordVoiceDropViewModel: NSObject, ObservableObject {
     @Published private(set) var elapsedSeconds = 0
     @Published private(set) var photoAttachmentName: String?
     @Published private(set) var videoAttachmentName: String?
+    @Published private(set) var photoURL: URL?
     @Published private(set) var saveMessage: String?
     @Published private(set) var errorMessage: String?
+    @Published private(set) var isSaved = false
 
     let ranges = ["25m", "50m", "100m", "500m", "Global"]
     let visibilityOptions = ["Public", "Followers", "Private"]
 
+    private let dataStore: TrailDataStore?
     private var audioRecorder: AVAudioRecorder?
     private var audioPlayer: AVAudioPlayer?
     private var timer: Timer?
     private var recordingURL: URL {
         FileManager.default.temporaryDirectory.appendingPathComponent("telltrail-voice-drop.m4a")
+    }
+
+    init(dataStore: TrailDataStore? = nil) {
+        self.dataStore = dataStore
+        super.init()
     }
 
     var durationText: String {
@@ -39,7 +46,8 @@ final class RecordVoiceDropViewModel: NSObject, ObservableObject {
     }
 
     var canSave: Bool {
-        hasRecording
+        !isSaved
+            && hasRecording
             && !title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
             && !locationName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
     }
@@ -51,11 +59,12 @@ final class RecordVoiceDropViewModel: NSObject, ObservableObject {
     }
 
     func toggleRecording() {
+        guard !isSaved else { return }
         isRecording ? stopRecording() : startRecording()
     }
 
     func previewRecording() {
-        guard hasRecording else { return }
+        guard !isSaved, hasRecording else { return }
 
         if isPreviewing {
             audioPlayer?.stop()
@@ -75,6 +84,7 @@ final class RecordVoiceDropViewModel: NSObject, ObservableObject {
     }
 
     func retakeRecording() {
+        guard !isSaved else { return }
         audioPlayer?.stop()
         audioRecorder?.stop()
         timer?.invalidate()
@@ -86,34 +96,57 @@ final class RecordVoiceDropViewModel: NSObject, ObservableObject {
         try? FileManager.default.removeItem(at: recordingURL)
     }
 
-    func attachPhoto(_ item: PhotosPickerItem?) async {
-        guard let item else { return }
+    func attachPhotoData(_ data: Data?) {
+        guard !isSaved, let data, !data.isEmpty else { return }
+
         do {
-            if let data = try await item.loadTransferable(type: Data.self), !data.isEmpty {
-                photoAttachmentName = "Photo attached"
-            }
+            let destinationURL = FileManager.default.temporaryDirectory
+                .appendingPathComponent("telltrail-photo-\(UUID().uuidString).jpg")
+            try data.write(to: destinationURL, options: Data.WritingOptions.atomic)
+            photoURL = destinationURL
+            photoAttachmentName = "Photo attached"
+            errorMessage = nil
         } catch {
             errorMessage = "Could not attach the selected photo."
         }
     }
 
-    func attachVideo(_ item: PhotosPickerItem?) async {
-        guard let item else { return }
-        do {
-            if let data = try await item.loadTransferable(type: Data.self), !data.isEmpty {
-                videoAttachmentName = "Video attached"
-            }
-        } catch {
-            errorMessage = "Could not attach the selected video."
-        }
+    func attachVideo() {
+        guard !isSaved else { return }
+        videoAttachmentName = "Video attached"
+        errorMessage = nil
     }
 
     func removePhoto() {
+        guard !isSaved else { return }
+        if let photoURL {
+            try? FileManager.default.removeItem(at: photoURL)
+        }
+        photoURL = nil
         photoAttachmentName = nil
     }
 
     func removeVideo() {
+        guard !isSaved else { return }
         videoAttachmentName = nil
+    }
+
+    func deleteDraft() {
+        guard !isSaved else { return }
+        title = ""
+        caption = ""
+        locationName = "MG Road Metro, Bengaluru"
+        selectedRange = "100m"
+        selectedVisibility = "Public"
+        if let photoURL {
+            try? FileManager.default.removeItem(at: photoURL)
+        }
+        photoURL = nil
+        photoAttachmentName = nil
+        videoAttachmentName = nil
+        errorMessage = nil
+        saveMessage = nil
+        retakeRecording()
     }
 
     func saveDrop() {
@@ -122,8 +155,41 @@ final class RecordVoiceDropViewModel: NSObject, ObservableObject {
             return
         }
 
-        saveMessage = "Voice drop ready to publish"
+        dataStore?.addVoiceDrop(
+            title: title.trimmingCharacters(in: .whitespacesAndNewlines),
+            caption: caption.trimmingCharacters(in: .whitespacesAndNewlines),
+            locationName: locationName.trimmingCharacters(in: .whitespacesAndNewlines),
+            duration: durationText,
+            range: selectedRange,
+            audioURL: persistedRecordingURL(),
+            imageURL: photoURL
+        )
+        saveMessage = nil
         errorMessage = nil
+        lockFormAfterSave()
+    }
+
+    private func persistedRecordingURL() -> URL? {
+        guard FileManager.default.fileExists(atPath: recordingURL.path) else { return nil }
+
+        let destinationURL = FileManager.default.temporaryDirectory
+            .appendingPathComponent("telltrail-\(UUID().uuidString).m4a")
+        do {
+            try FileManager.default.copyItem(at: recordingURL, to: destinationURL)
+            return destinationURL
+        } catch {
+            return recordingURL
+        }
+    }
+
+    private func lockFormAfterSave() {
+        audioPlayer?.stop()
+        audioRecorder?.stop()
+        timer?.invalidate()
+        timer = nil
+        isRecording = false
+        isPreviewing = false
+        isSaved = true
     }
 
     private func startRecording() {
@@ -132,7 +198,7 @@ final class RecordVoiceDropViewModel: NSObject, ObservableObject {
         audioPlayer?.stop()
         isPreviewing = false
 
-        AVAudioSession.sharedInstance().requestRecordPermission { [weak self] isAllowed in
+        AVAudioApplication.requestRecordPermission { [weak self] isAllowed in
             DispatchQueue.main.async {
                 guard let self else { return }
                 guard isAllowed else {
